@@ -68,3 +68,44 @@ resource "aws_security_group" "ec2_sg" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 }
+
+#Create EC2 Instance with Terraform
+
+resource "aws_instance" "ansible_node" {
+  ami           = "ami-0c2b8ca1dad447f8a" # Ubuntu 22.04 in us-east-1
+  instance_type = "t2.micro"
+  subnet_id     = aws_subnet.public.id
+  key_name      = "mypemkey.pem" # Replace with your actual key pair name
+  vpc_security_group_ids = [aws_security_group.ec2_sg.id]
+
+  tags = {
+    Name = "${var.project_name}-ansible-node"
+  }
+}
+
+
+#EKS Cluster using terraform Cluster
+
+module "eks" {
+  source          = "terraform-aws-modules/eks/aws"
+  cluster_name    = "${var.project_name}-eks"
+  cluster_version = "1.28"
+  subnets         = [aws_subnet.public.id]
+  vpc_id          = aws_vpc.main.id
+
+  eks_managed_node_groups = {
+    default = {
+      desired_capacity = 1
+      max_capacity     = 2
+      min_capacity     = 1
+
+      instance_types = ["t3.small"]
+    }
+  }
+
+  tags = {
+    Environment = "dev"
+    Terraform   = "true"
+  }
+}
+
